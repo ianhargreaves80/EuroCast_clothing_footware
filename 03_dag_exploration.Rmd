@@ -9,7 +9,11 @@ library(lubridate)    # For date manipulation
 library(tidyverse)    # Core data manipulation and visualization
 
 library(here)
-combined_q_trimmed <- readRDS("filepath")
+combined_q_trimmed <- 
+readRDS(
+  url("https://github.com/ianhargreaves80/EuroCast_clothing_footware/raw/refs/heads/main/combined_q_trimmed.rds")
+)
+
 ```
 
 ## Overview
