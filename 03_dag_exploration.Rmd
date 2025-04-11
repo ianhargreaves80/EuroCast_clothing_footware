@@ -1,0 +1,278 @@
+---
+title: "Causal Exploration of Retail Volume Drivers"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(eurostat)     # For data access
+library(lubridate)    # For date manipulation
+library(tidyverse)    # Core data manipulation and visualization
+
+library(here)
+combined_q_trimmed <- readRDS("filepath")
+```
+
+## Overview
+
+This document provides a preliminary exploration of possible causal relationships between macroeconomic indicators and retail sales volume using binary comparisons. Rather than immediately fitting a complex multivariate Bayesian model (e.g., via brms), I began with a simple, explainable approach: discretising continuous predictors into binary variables and comparing conditional distributions.
+
+This approach supports early theory-driven DAG construction, helping to answer questions like:
+
+* How is present sales volume predicted and do factors like previous sales volume, price or household income predict future sales
+* Are there factors that, in turn, can predict consumer sentiment or price
+* What deconfounding needs to take place in order to be confident that true causality can be assumed?
+
+Since price is a potential intervention strategy, understanding its past predictors—such as lagged sales, sentiment, or income—enables more effective forward planning, including pricing optimisation and elasticity modeling. While sentiment is not directly intervenable, marketing research shows that predicted consumer sentiment can inform campaign planning, allowing marketers to anticipate and adjust campaigns in response to forecasted public mood.
+
+## Step 1: Generate Lags for Key Variables
+
+To estimate temporal relationships, we create first- and second-order lags for all potential predictors.
+
+$$
+\text{Lag}_k(X_{it}) = X_{i(t-k)}
+$$
+
+```{r}
+combined_q_lags <- combined_q_trimmed %>%
+  group_by(geo) %>%
+  arrange(time) %>%
+  mutate(
+    volume_lag1       = lag(volume_index, 1),
+    volume_lag2       = lag(volume_index, 2),
+    price_index_lag1  = lag(price_index, 1),
+    sentiment_lag1    = lag(sentiment, 1),
+    sentiment_lag2    = lag(sentiment, 2),
+    unemployment_lag1 = lag(unemployment_rate, 1),
+    unemployment_lag2 = lag(unemployment_rate, 2),
+    income_lag1       = lag(household_income, 1),
+    income_lag2       = lag(household_income, 2)
+  ) %>%
+  ungroup()
+```
+
+## Step 3: Binarize All Variables for Stratified Analysis
+
+Binarised all numeric variables based on their median to approximate a discretised causal analysis. This simplifies the analysis to conditional probability comparisons:
+
+$$
+X^{bin}_{it} = \begin{cases} 1 & \text{if } X_{it} > \text{median}(X) \\ 0 & \text{otherwise} \end{cases} \quad \text{for all numeric predictors } X
+$$
+
+```{r}
+binned_df <- combined_q_trimmed %>%
+  mutate(across(where(is.numeric), ~ ifelse(. > median(., na.rm = TRUE), 1, 0))) %>%
+  mutate(
+    sentiment_lag1      = lag(sentiment, 1),
+    sentiment_lag2      = lag(sentiment, 2),
+    income_lag1         = lag(household_income, 1),
+    income_lag2         = lag(household_income, 2),
+    unemployment_lag1   = lag(unemployment_rate, 1),
+    unemployment_lag2   = lag(unemployment_rate, 2),
+    price_index_lag1    = lag(price_index, 1),
+    volume_index_lag1   = lag(volume_index, 1),
+    volume_index_lag2   = lag(volume_index, 2)
+  )
+```
+
+## Step 4: Estimate Conditional Probabilities
+
+To explore whether various predictors carry information about future sales volume, we examine conditional probabilities of the form:
+
+$$
+P(V = 1 \mid X = 1) \ne P(V = 1)
+$$
+
+Here, \( V \) represents **binned sales volume**, and \( X \) is a potential predictor such as **sentiment**, **income**, **unemployment**, or **price**. Since all variables have been binarized at the median, the marginal probability \( P(V = 1) \approx 0.5 \). Significant deviations from this baseline suggest that \( X \) may carry predictive information about \( V \), warranting further investigation into possible associations or causal pathways.
+
+### Key Variables
+
+$$
+\begin{aligned}
+V_t &:= \text{Volume of retail sales at time } t \\
+P_t &:= \text{Price index (HICP) at time } t \\
+S_t &:= \text{Consumer sentiment indicator at time } t \\
+U_t &:= \text{Unemployment rate at time } t \\
+I_t &:= \text{Household income at time } t \\
+\end{aligned}
+$$
+
+### Conditional Probability Results
+
+```{r, results='asis'}
+library(kableExtra)
+library(dplyr)
+
+results_tbl <- tibble::tibble(
+  Hypothesis = c(
+    "$P(V = 1 \\mid S_t = 1) \\ne P(V = 1)$",
+    "$P(V = 1 \\mid S_{t-1} = 1) \\ne P(V = 1)$",
+    "$P(V = 1 \\mid I_t = 1) \\ne P(V = 1)$",
+    "$P(V = 1 \\mid I_{t-1} = 1) \\ne P(V = 1)$",
+    "$P(V = 1 \\mid U_t = 1) \\ne P(V = 1)$",
+    "$P(V = 1 \\mid U_{t-1} = 1) \\ne P(V = 1)$",
+    "$P(V = 1 \\mid P_t = 1) \\ne P(V = 1)$",
+    "$P(V = 1 \\mid P_{t-1} = 1) \\ne P(V = 1)$",
+    "$P(V = 1 \\mid V_{t-1} = 1) \\ne P(V = 1)$"
+  ),
+  `P(V = 1 | X = 1)` = c(
+    mean(binned_df$volume_index[binned_df$sentiment == 1], na.rm = TRUE),
+    mean(binned_df$volume_index[binned_df$sentiment_lag1 == 1], na.rm = TRUE),
+    mean(binned_df$volume_index[binned_df$household_income == 1], na.rm = TRUE),
+    mean(binned_df$volume_index[binned_df$income_lag1 == 1], na.rm = TRUE),
+    mean(binned_df$volume_index[binned_df$unemployment_rate == 1], na.rm = TRUE),
+    mean(binned_df$volume_index[binned_df$unemployment_lag1 == 1], na.rm = TRUE),
+    mean(binned_df$volume_index[binned_df$price_index == 1], na.rm = TRUE),
+    mean(binned_df$volume_index[binned_df$price_index_lag1 == 1], na.rm = TRUE),
+    mean(binned_df$volume_index[binned_df$volume_index_lag1 == 1], na.rm = TRUE)
+  ) %>% round(3),
+  Interpretation = c(
+    "When sentiment is high, sales volume is also high ~67% of the time, suggesting sentiment contains predictive information.",
+    "Innertia from previous sentiment carries over to the following quarter",
+    "Higher household income is associated with higher sales volume, with probabilities near 67%. Income appears predictive.",
+    "Previous household income remains a strong predictor of today's sales volume",
+    "Higher unemployment corresponds to lower sales volume (~36%), indicating a strong negative association.",
+    "Previous quarter's higher unemployment remains a strong predictor of today's volume of sales",
+    "Sales volume is higher ~56.6% of the time when prices are high — a counterintuitive result, possibly due to confounding.",
+    "Previous increased pricing remains a strong, and counter intuitive predictor of present day sales",
+    "Sales volume is by far the biggest predictor suggesting a strong propensity for sales innertia in the market"
+  )
+)
+
+kbl(results_tbl, booktabs = TRUE, escape = FALSE,
+    col.names = c("Hypothesis", "P(V = 1 | X = 1)", "Interpretation")) %>%
+  kable_styling(latex_options = c("hold_position")) %>%
+  column_spec(2, width = "3cm")
+```
+
+
+### Predicting future sentiment and price changes
+
+Since sentiment and price, as discussed above, should influence marketing strategy, it is important that future values of these can be predicted in order to allow for foreward planning. The same goes for pricing, if future pricing of the market can be predictor, defensive and oven offensive product pricing strategies can be planned in a proactive way, rather than a reactive way. The below table predicts present sentiment and price on lagged possible drivers. Namely, can sentiment be predicted by income and unemployment and can price be predicted by the full set of variables of past sentiment, income, unemployment and previous sales volume. The latter would give key insights into how to predict the competition's pricing strategies and behave accordingly.
+
+```{r}
+results_tbl <- tibble::tibble(
+  Hypothesis = c(
+    "$P(S = 1 \\mid U_{t-1} = 1) \\ne P(V = 1)$",
+    "$P(S = 1 \\mid I_{t-1} = 1) \\ne P(V = 1)$",
+    "$P(P = 1 \\mid U_{t-1} = 1) \\ne P(V = 1)$",
+    "$P(P = 1 \\mid I_{t-1} = 1) \\ne P(V = 1)$",
+    "$P(P = 1 \\mid S_{t-1} = 1) \\ne P(V = 1)$",
+    "$P(P = 1 \\mid V_{t-1} = 1) \\ne P(V = 1)$"
+  ),
+  `P(V = 1 | X = 1)` = c(
+    mean(binned_df$sentiment[binned_df$unemployment_lag1 == 1], na.rm = TRUE),
+    mean(binned_df$sentiment[binned_df$income_lag1 == 1], na.rm = TRUE),
+    mean(binned_df$price_index[binned_df$unemployment_lag1 == 1], na.rm = TRUE),
+    mean(binned_df$price_index[binned_df$income_lag1 == 1], na.rm = TRUE),
+    mean(binned_df$price_index[binned_df$sentiment_lag1 == 1], na.rm = TRUE),
+    mean(binned_df$price_index[binned_df$volume_index_lag1 == 1], na.rm = TRUE)
+  ) %>% round(3),
+  Interpretation = c(
+    "The results show that the probability of high sentiment clearly drops when previous unemployment is high.",
+    "Intuitively, past increases in income leads to a higher future sentiment",
+    "Though the effect is small, the results suggest that the probability of high pricing drops at values of past high unemployment",
+    "Sales volume is higher ~56.6% of the time when prices are high — a counterintuitive result, possibly due to confounding.",
+    "Past sentiment is clearly not related in any meanigful way to present prices",
+    "Increases in past sales volumes are clearly related to increases is the probability of future high prices"
+  )
+)
+
+kbl(results_tbl, booktabs = TRUE, escape = FALSE,
+    col.names = c("Hypothesis", "P(V = 1 | X = 1)", "Interpretation")) %>%
+  kable_styling(latex_options = c("hold_position")) %>%
+  column_spec(2, width = "3cm")
+```
+
+## Step 5: Confounding Checks
+
+The above results indicate that not only does the set of variables household income, sentiment, or unemployment predict volume of sales, but they also predict price. This makes them clear candidates for counfounders of price and a possible explanation for me counter intuitive behaviour of price. To assess whether the observed relationship between higher prices (price_index) and higher sales volume (volume_index) may be confounded by other variables—specifically, household income, sentiment, or unemployment.
+
+A key concern is that factors such as sales volume at $t-1$ through innertia and unemployment may influence both prices and sales together either contemporaneously or through lagged effects—and, in turn, impact sales volume. This introduces a backdoor path from sales volume at $t-1$ or unemployment to price to volume, potentially biasing our estimates of the causal effect of price.
+
+As a starting point, we will use the benchmark of total effect of price on sales volume by measuring, suggesting that price being high increases the probability of sales volume being high (again, counter intuitive) by about 12% points. 
+
+$$
+P(V = 1 \mid P = 1)) - P(V = 1 \mid P = 0))
+$$
+
+```{r}
+mean(binned_df$volume_index[binned_df$price_index == 1], na.rm = TRUE) - mean(binned_df$volume_index[binned_df$price_index == 0], na.rm = TRUE)
+```
+
+To estimate the causal impact of price on volume while accounting for such confounding, we compute the Average Causal Effect (ACE) using the adjustment formula:
+
+$$
+ACE = P(V = 1 \mid do(P = 1)) - P(V = 1 \mid do(P = 0))
+$$
+
+Here, P is the variable we intervene on (price), and confounders such as sales volume at $t-1$ sentiment, income, or unemployment are denoted as Z. To block backdoor paths from Z to P, we apply stratification or adjustment:
+
+$$
+P(V = 1 \mid do(P = 1)) = \sum_z P(V = 1 \mid P = 1, Z = z) \cdot P(Z = z)
+$$
+
+This formula adjusts the observed relationship between price and volume by conditioning on the confounding variable Z, effectively simulating an intervention on price while holding Z constant.
+
+```{r}
+# --- Compute base difference ---
+base_line <- mean(binned_df$volume_index[binned_df$price_index == 1], na.rm = TRUE) -
+             mean(binned_df$volume_index[binned_df$price_index == 0], na.rm = TRUE)
+
+# --- ACE: Price effect conditioned on household income ---
+high_price_high_income_income <- mean(binned_df$volume_index[binned_df$price_index == 1 & binned_df$household_income == 1], na.rm = TRUE) * 0.5
+high_price_low_income_income  <- mean(binned_df$volume_index[binned_df$price_index == 1 & binned_df$household_income == 0], na.rm = TRUE) * 0.5
+low_price_high_income_income  <- mean(binned_df$volume_index[binned_df$price_index == 0 & binned_df$household_income == 1], na.rm = TRUE) * 0.5
+low_price_low_income_income   <- mean(binned_df$volume_index[binned_df$price_index == 0 & binned_df$household_income == 0], na.rm = TRUE) * 0.5
+
+ace_price_on_sales_income <- (high_price_high_income_income + high_price_low_income_income) -
+                             (low_price_high_income_income + low_price_low_income_income)
+
+# --- ACE: Price effect conditioned on unemployment ---
+high_price_high_unemp <- mean(binned_df$volume_index[binned_df$price_index == 1 & binned_df$unemployment_rate == 1], na.rm = TRUE) * 0.5
+high_price_low_unemp  <- mean(binned_df$volume_index[binned_df$price_index == 1 & binned_df$unemployment_rate == 0], na.rm = TRUE) * 0.5
+low_price_high_unemp  <- mean(binned_df$volume_index[binned_df$price_index == 0 & binned_df$unemployment_rate == 1], na.rm = TRUE) * 0.5
+low_price_low_unemp   <- mean(binned_df$volume_index[binned_df$price_index == 0 & binned_df$unemployment_rate == 0], na.rm = TRUE) * 0.5
+
+ace_price_on_sales_unemp <- (high_price_high_unemp + high_price_low_unemp) -
+                             (low_price_high_unemp + low_price_low_unemp)
+
+# --- ACE: Price effect conditioned on lagged volume ---
+high_price_high_lag <- mean(binned_df$volume_index[binned_df$price_index == 1 & binned_df$volume_index_lag1 == 1], na.rm = TRUE) * 0.5
+high_price_low_lag  <- mean(binned_df$volume_index[binned_df$price_index == 1 & binned_df$volume_index_lag1 == 0], na.rm = TRUE) * 0.5
+low_price_high_lag  <- mean(binned_df$volume_index[binned_df$price_index == 0 & binned_df$volume_index_lag1 == 1], na.rm = TRUE) * 0.5
+low_price_low_lag   <- mean(binned_df$volume_index[binned_df$price_index == 0 & binned_df$volume_index_lag1 == 0], na.rm = TRUE) * 0.5
+
+ace_price_on_sales_lag <- (high_price_high_lag + high_price_low_lag) -
+                          (low_price_high_lag + low_price_low_lag)
+
+# --- Build Results Table ---
+results_tbl <- tibble::tibble(
+  Hypothesis = c(
+    "$P(V = 1 \\mid do(P), I_t)$",
+    "$P(V = 1 \\mid do(P), U_t)$",
+    "$P(V = 1 \\mid do(P), V_{t-1})$"
+  ),
+  `P(V = 1 | X = 1)` = c(
+    ace_price_on_sales_income,
+    ace_price_on_sales_unemp,
+    ace_price_on_sales_lag
+  ) %>% round(3),
+  Delta = c(
+    base_line - ace_price_on_sales_income,
+    base_line - ace_price_on_sales_unemp,
+    base_line - ace_price_on_sales_lag
+  ) %>% round(3),
+  Interpretation = c(
+    "Strong confounding effect of household income on price",
+    "Modest confounding effect of unemployment on prices effect of sales volumes",
+    "Past sales are clearly a driver of both present volume and price - any affect price has on sales volume is almost completely nutralised"
+  )
+)
+
+# --- Render Table ---
+kbl(results_tbl, booktabs = TRUE, escape = FALSE,
+    col.names = c("Hypothesis", "P(V = 1 | X = 1)", "Delta", "Interpretation")) %>%
+  kable_styling(latex_options = c("hold_position")) %>%
+  column_spec(2, width = "3cm")
+
+```

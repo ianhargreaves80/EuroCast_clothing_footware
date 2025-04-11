@@ -1,0 +1,17 @@
+# R Data and Output
+*.csv
+*.rds
+*.RData
+*.Rhistory
+
+# Project Files
+.Rproj.user/
+*.Rproj
+
+# Plots and Output
+/diagnostics/
+/output/
+
+# OS Junk
+.DS_Store
+
