@@ -4,14 +4,16 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
+library(eurostat)     # For data access
 library(lubridate)    # For date manipulation
 library(tidyverse)    # Core data manipulation and visualization
 
+library(here)
 combined_q_trimmed <- 
-  readRDS(
-    url("https://github.com/ianhargreaves80/EuroCast_clothing_footware/raw/refs/heads/main/combined_q_trimmed.rds")
-  ) %>%
-  filter(!geo %in% c("EU27_2020", "EA20")) # properly remove EU-level data
+readRDS(
+  url("https://github.com/ianhargreaves80/EuroCast_clothing_footware/raw/refs/heads/main/combined_q_trimmed.rds")
+)
+
 ```
 
 ## Overview
@@ -126,14 +128,26 @@ results_tbl <- tibble::tibble(
     mean(binned_df$volume_index[binned_df$price_index == 1], na.rm = TRUE),
     mean(binned_df$volume_index[binned_df$price_index_lag1 == 1], na.rm = TRUE),
     mean(binned_df$volume_index[binned_df$volume_index_lag1 == 1], na.rm = TRUE)
-  ) %>% round(3)
+  ) %>% round(3),
+  Interpretation = c(
+    "When sentiment is high, sales volume is also high ~67% of the time, suggesting sentiment contains predictive information.",
+    "Innertia from previous sentiment carries over to the following quarter",
+    "Higher household income is associated with higher sales volume, with probabilities near 67%. Income appears predictive.",
+    "Previous household income remains a strong predictor of today's sales volume",
+    "Higher unemployment corresponds to lower sales volume (~36%), indicating a strong negative association.",
+    "Previous quarter's higher unemployment remains a strong predictor of today's volume of sales",
+    "Sales volume is higher ~56.6% of the time when prices are high — a counterintuitive result, possibly due to confounding.",
+    "Previous increased pricing remains a strong, and counter intuitive predictor of present day sales",
+    "Sales volume is by far the biggest predictor suggesting a strong propensity for sales innertia in the market"
+  )
 )
 
 kbl(results_tbl, booktabs = TRUE, escape = FALSE,
-    col.names = c("Hypothesis", "P(V = 1 | X = 1)")) %>%
+    col.names = c("Hypothesis", "P(V = 1 | X = 1)", "Interpretation")) %>%
   kable_styling(latex_options = c("hold_position")) %>%
   column_spec(2, width = "3cm")
 ```
+
 
 ### Predicting future sentiment and price changes
 
@@ -154,13 +168,21 @@ results_tbl <- tibble::tibble(
     mean(binned_df$sentiment[binned_df$income_lag1 == 1], na.rm = TRUE),
     mean(binned_df$price_index[binned_df$unemployment_lag1 == 1], na.rm = TRUE),
     mean(binned_df$price_index[binned_df$income_lag1 == 1], na.rm = TRUE),
-    mean(binned_df$price_index[binned_df$sentiment == 1], na.rm = TRUE),
+    mean(binned_df$price_index[binned_df$sentiment_lag1 == 1], na.rm = TRUE),
     mean(binned_df$price_index[binned_df$volume_index_lag1 == 1], na.rm = TRUE)
-  ) %>% round(3)
+  ) %>% round(3),
+  Interpretation = c(
+    "The results show that the probability of high sentiment clearly drops when previous unemployment is high.",
+    "Intuitively, past increases in income leads to a higher future sentiment",
+    "Though the effect is small, the results suggest that the probability of high pricing drops at values of past high unemployment",
+    "Sales volume is higher ~56.6% of the time when prices are high — a counterintuitive result, possibly due to confounding.",
+    "Past sentiment is clearly not related in any meanigful way to present prices",
+    "Increases in past sales volumes are clearly related to increases is the probability of future high prices"
+  )
 )
 
 kbl(results_tbl, booktabs = TRUE, escape = FALSE,
-    col.names = c("Hypothesis", "P(V = 1 | X = 1)")) %>%
+    col.names = c("Hypothesis", "P(V = 1 | X = 1)", "Interpretation")) %>%
   kable_styling(latex_options = c("hold_position")) %>%
   column_spec(2, width = "3cm")
 ```
@@ -240,15 +262,20 @@ results_tbl <- tibble::tibble(
     ace_price_on_sales_lag
   ) %>% round(3),
   Delta = c(
-     ace_price_on_sales_income - base_line,
-     ace_price_on_sales_unemp  - base_line,
-     ace_price_on_sales_lag    - base_line
-  ) %>% round(3)
+    base_line - ace_price_on_sales_income,
+    base_line - ace_price_on_sales_unemp,
+    base_line - ace_price_on_sales_lag
+  ) %>% round(3),
+  Interpretation = c(
+    "Strong confounding effect of household income on price",
+    "Modest confounding effect of unemployment on prices effect of sales volumes",
+    "Past sales are clearly a driver of both present volume and price - any affect price has on sales volume is almost completely nutralised"
   )
+)
 
 # --- Render Table ---
 kbl(results_tbl, booktabs = TRUE, escape = FALSE,
-    col.names = c("Hypothesis", "P(V = 1 | X = 1)", "Delta")) %>%
+    col.names = c("Hypothesis", "P(V = 1 | X = 1)", "Delta", "Interpretation")) %>%
   kable_styling(latex_options = c("hold_position")) %>%
   column_spec(2, width = "3cm")
 
