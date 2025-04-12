@@ -73,7 +73,7 @@ Future model iterations will rely on locally downloaded CSVs only for up-to-date
 - Last quarter's unemployment has a negative relationship with sales volume, i.e., when unemployment rises one quarter' next querter's sales volume significantly drops.
 - Real-time price has a small, context-sensitive effect on volume. Its impact is often confounded by income and prior volume, indicating the need for causal adjustment.
 - Retail sales momentum (lagged volume) is a dominant predictor, emphasizing the value of sustaining demand after strong quarters.
-- Macro signals can forecast competitor competitor price moves and consumer sentiment, enabling more informed pricing strategies.
+- Previous quarter macro signals can forecast competitor competitor price moves and consumer sentiment, enabling more informed and pro-active pricing strategies and sentiment counter-measures.
   
 ![image](https://github.com/user-attachments/assets/50e101cc-8c35-43a4-8200-f38103248c4d)
 
