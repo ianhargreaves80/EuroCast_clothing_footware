@@ -73,6 +73,7 @@ Future model iterations will rely on locally downloaded CSVs only for up-to-date
 - Price has a small, context-sensitive effect on volume. Its impact is often confounded by income and prior volume, indicating the need for causal adjustment.
 - Retail sales momentum (lagged volume) is a dominant predictor, emphasizing the value of sustaining demand after strong quarters.
 - Macro signals can forecast competitor price moves, enabling more informed pricing strategies.
+<img width="617" alt="DAG" src="https://github.com/user-attachments/assets/af908083-392c-4194-ad54-22bf57c7a779" />
 
 ---
 
