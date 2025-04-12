@@ -108,7 +108,7 @@ Future model iterations will rely on locally downloaded CSVs only for up-to-date
 
 - **Upgrade to most recent data:**  
   - Replace API-sourced data with live Eurostat CSV downloads to reduce lag and enhance scenario accuracy.
-  - Better understand what to do with non-reporting countries (e.g., CH not reporting sentiment) and find proxies on imputation options
+  - Better understand what to do with non-reporting countries (e.g., CH not reporting sentiment) and find proxies or imputation options
 
 - **Solvel Hierarchical Model Issues**
   - Parts of the hierachical model could not converge at 1,000 iterations (running on local machine). Rerun this in GCE in a high compute engine (16-32 CPUs, 16GB)
