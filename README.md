@@ -66,13 +66,15 @@ Future model iterations will rely on locally downloaded CSVs only for up-to-date
 - Posterior predictive checks and full diagnostics included.
 
 ---
+
 ## Output
 
 - `combined_q_trimmed.rds`: Cleaned & imputed dataset  
 - `fit_bayes.rds`: Pooled Bayesian model  
 - `fit_bayes_hier.rds`: Hierarchical multilevel model  
 - `/diagnostics`: Posterior predictive check plots  
-- `executive_summary.Rmd`: Business-facing insights report  
+- `executive_summary.Rmd`: Business-facing insights report
+   
 ---
 
 ## Key Business Insights
@@ -106,6 +108,7 @@ Future model iterations will rely on locally downloaded CSVs only for up-to-date
 
 - **Upgrade to most recent data:**  
   - Replace API-sourced data with live Eurostat CSV downloads to reduce lag and enhance scenario accuracy.
+  - Better understand what to do with non-reporting countries (e.g., CH not reporting sentiment) and find proxies on imputation options
 
 - **Solvel Hierarchical Model Issues**
   - Parts of the hierachical model could not converge at 1,000 iterations (running on local machine). Rerun this in GCE in a high compute engine (16-32 CPUs, 16GB)
