@@ -1,100 +1,116 @@
-#  EuroCast: Causal Modeling of Retail Sales for Clothing & Footwear
+# EuroCast: Causal Modeling of Retail Sales for Clothing & Footwear
+
+## Project Lead
+
+**Ian Hargreaves**  
+Bayesian Modeling • Marketing Analytics • Decision Science  
+[GitHub Profile »](https://github.com/ianhargreaves80/EuroCast_clothing_footware)
+
+---
 
 ## Overview
 
-This project develops a causal forecasting framework for clothing and footwear retail sales across European markets using macroeconomic indicators from **Eurostat**. The aim is to move beyond simple associations and deliver **actionable causal insights** that support proactive pricing strategies and campaign planning in volatile consumer environments.
+**EuroCast** is a forward-looking, causally grounded forecasting framework for clothing and footwear retail across European markets. By integrating macroeconomic indicators with Bayesian modeling and causal DAG theory, this project shifts analytics from descriptive hindsight to actionable foresight.
 
-It integrates:
-- **Bayesian multivariate modeling (via `brms`)**
-- **Causal inference using DAG theory**
-- **Macro-to-micro marketing strategy translation**
+Built using:
+- Bayesian multivariate modeling (`brms`)
+- Causal inference using DAGs
+- Macro-to-micro marketing strategy logic
+
+This work aims to empower strategic planning across pricing, sentiment-based messaging, and demand stabilization — even in uncertain economic conditions.
 
 ---
 
 ## Objectives
 
-- Quantify the **causal impact** of macroeconomic variables (e.g., unemployment, income, sentiment) on retail sales.
-- Understand **price and sentiment dynamics** to enable **proactive** planning, not reactive firefighting.
-- Create early-warning and campaign optimization tools using **explainable Bayesian models**.
+- Quantify the causal impact of macro drivers (e.g., unemployment, income, sentiment) on retail demand.
+- Translate macro trends into proactive marketing & pricing actions.
+- Enable early-warning systems using explainable Bayesian models for campaign and pricing strategy.
 
 ---
 
 ## Data Sources
 
-All data is sourced directly from [Eurostat](https://ec.europa.eu/eurostat). Key indicators:
+All macroeconomic indicators are sourced from [Eurostat](https://ec.europa.eu/eurostat).
 
 | Indicator                  | Dataset Name         | Description                                 |
-|----------------------------|----------------------|---------------------------------------------|
-| HICP (Clothing & Footwear) | `prc_hicp_midx`      | Price index, 2015=100                       |
-| Retail Volume Index        | `sts_trtu_m`         | Clothing + general retail volume (adjusted) |
-| Consumer Sentiment         | `ei_bsco_m`          | Composite consumer confidence index         |
-| Unemployment Rate          | `une_rt_m`           | Ages 25–74, seasonally adjusted             |
-| Household Income Proxy     | `nasq_10_nf_tr`      | Gross domestic income (received, S14_S15)   |
+|---------------------------|----------------------|---------------------------------------------|
+| HICP (Clothing & Footwear)| `prc_hicp_midx`      | Harmonized price index, 2015 = 100          |
+| Retail Volume Index        | `sts_trtu_m`         | Seasonally adjusted retail volume           |
+| Consumer Sentiment         | `ei_bsco_m`          | Composite confidence index                  |
+| Unemployment Rate          | `une_rt_m`           | Age 25–74, seasonally adjusted              |
+| Household Income Proxy     | `nasq_10_nf_tr`      | Gross income received (sector S14_S15)      |
+
+**Important Note:**  
+The Eurostat R API (`eurostat` package) is frequently outdated by several months, while manually downloaded CSV files reflect the most current data.  
+Future model iterations will rely on locally downloaded CSVs only for up-to-date analysis.
 
 ---
 
 ## Methodology
 
 ### 1. Data Ingestion & Cleaning (`01_ingest_eurostat.R`)
-- Pulls and aggregates macroeconomic indicators by country and quarter.
-- Applies filters for reporting quality and imputes missing values via MICE.
-- Outputs a cleaned dataset: `combined_q_trimmed.rds`
+- Aggregates monthly data to quarterly resolution.
+- Applies country filters and imputes missing values via MICE.
+- Produces `combined_q_trimmed.rds` for modeling.
 
-### 2. Causal Exploration & DAG Construction (`03_dag_exploration.html`)
-- Binary comparisons of conditional probabilities help structure a DAG.
-- Identifies key confounders and candidates for adjustment in modeling.
+### 2. Causal Exploration (`03_dag_exploration.html`)
+- Binary comparisons of lagged effects build an initial DAG.
+- Assesses candidate confounders and structural assumptions.
 
 ### 3. Bayesian Modeling (`04_bayesian_model.R`)
-- Uses **`brms`** to estimate a pooled and hierarchical Bayesian model with:
-  - Retail volume predicted by lagged volume, sentiment, unemployment, and price.
-  - Sentiment modeled by income and unemployment.
-  - Prices explained by income, unemployment, and lagged sales volume.
-
-- Output includes full posterior summaries and posterior predictive checks.
+- Pooled and multilevel (`brms`) models:
+  - Volume: ~ lag(volume) + sentiment + unemployment + price  
+  - Sentiment: ~ lag(income) + lag(unemployment)  
+  - Price: ~ lag(income) + lag(unemployment) + lag(volume)
+- Posterior predictive checks and full diagnostics included.
 
 ---
 
 ## Key Business Insights
 
-- **Sentiment is a direct driver of retail sales**, and is itself predictable from macroeconomic variables. This enables **pre-campaign planning** when public mood is expected to shift.
-- **Price has a small but non-trivial effect** on volume. Its impact is often confounded by other drivers like income or prior demand.
-- **Sales volume is strongly autoregressive**, reinforcing the importance of loyalty and retention after successful quarters.
-- **Predicting competitors' pricing** becomes feasible through lagged indicators.
+- Consumer sentiment is a real-time sales driver, and is itself predictable from lagged income and unemployment.
+- Price has a small, context-sensitive effect on volume. Its impact is often confounded by income and prior volume, indicating the need for causal adjustment.
+- Retail sales momentum (lagged volume) is a dominant predictor, emphasizing the value of sustaining demand after strong quarters.
+- Macro signals can forecast competitor price moves, enabling more informed pricing strategies.
 
 ---
 
 ## Output
 
-- `combined_q_trimmed.rds`: Cleaned and imputed macroeconomic dataset
-- `fit_bayes.rds`: Pooled model object
-- `fit_bayes_hier.rds`: Hierarchical model object
-- `/diagnostics`: Model diagnostics and predictive check plots
-- `executive_summary.Rmd`: Manager-facing summary of findings and implications
+- `combined_q_trimmed.rds`: Cleaned & imputed dataset  
+- `fit_bayes.rds`: Pooled Bayesian model  
+- `fit_bayes_hier.rds`: Hierarchical multilevel model  
+- `/diagnostics`: Posterior predictive check plots  
+- `executive_summary.Rmd`: Business-facing insights report  
 
 ---
 
 ## Strategic Applications
 
-- **Campaign timing** based on predicted sentiment drops.
-- **Localized pricing recommendations** grounded in causal estimates.
-- **Scenario planning** using simulated interventions via `do()` calculus.
-- **Competitive price tracking** via inferred macro-signal reactions.
+- Preemptive campaign planning triggered by predicted sentiment downturns  
+- Localized price strategy tuned to country-level macro context  
+- Scenario modeling for simulated shocks using causal `do()` logic  
+- Elasticity-informed pricing moves based on market conditioning
 
 ---
 
 ## Next Steps
 
-- Deploy interactive dashboards for country-specific scenario exploration.
-- Integrate granular retail data (if available) for micro-level validation.
-- Test uplift modeling frameworks that integrate forecasted sentiment trajectories.
+- **Integrate trade and supply-side shocks:**  
+  Given recent global disruptions (e.g., U.S. tariffs, shifting trade blocs), the current model should be extended to capture:
+  - Imported inflation risks via producer prices and trade volumes
+  - Sudden supply chain disruptions influencing price and sentiment
+  - Macro volatility propagation from external shocks to consumer behavior
+
+- **Upgrade to most recent data:**  
+  Replace API-sourced data with live Eurostat CSV downloads to reduce lag and enhance scenario accuracy.
+
+- **Future Modeling Directions:**
+  - Incorporate Bayesian networks for flexible multi-node inference  
+  - Add business sentiment or trade indicators as upstream drivers  
+  - Extend to real-time scenario dashboards with probabilistic forecasting
 
 ---
 
-## Project Lead
-
-**Ian Hargreaves**  
-Bayesian Modeling • Marketing Analytics • Decision Science   [GitHub Profile]([https://github.com/YOUR_USERNAME](https://github.com/ianhargreaves80/EuroCast_clothing_footware/new/main?filename=README.md))
-
----
-      
-> This repository demonstrates the potential of combining causal inference, macroeconomic data, and Bayesian statistics to inform smarter pricing, better marketing, and proactive retail planning.
+> This project demonstrates how causal modeling, macro data, and Bayesian forecasting can come together to help marketers and strategists anticipate, adapt, and act — rather than react — in volatile economic landscapes.
