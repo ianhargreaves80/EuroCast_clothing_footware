@@ -103,6 +103,7 @@ Future model iterations will rely on locally downloaded CSVs only for up-to-date
   - Imported inflation risks via producer prices and trade volumes
   - Sudden supply chain disruptions influencing price and sentiment
   - Macro volatility propagation from external shocks to consumer behavior
+  - Parts of the hierachical model could not converge at 1,000 iterations (running on local machine). Rerun this in GCE with a bette compute engine
 
 - **Upgrade to most recent data:**  
   Replace API-sourced data with live Eurostat CSV downloads to reduce lag and enhance scenario accuracy.
