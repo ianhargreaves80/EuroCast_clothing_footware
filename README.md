@@ -10,22 +10,22 @@ Bayesian Modeling • Marketing Analytics • Decision Science
 
 ## Overview
 
-**EuroCast** is a forward-looking, causally grounded forecasting framework for clothing and footwear retail across European markets. By integrating macroeconomic indicators with Bayesian modeling and causal DAG theory, this project shifts analytics from descriptive hindsight to actionable foresight.
+**EuroCast** is a forward-looking, causally grounded forecasting framework for clothing and footwear retail across European markets. By integrating macroeconomic indicators with Bayesian modeling and DAG-based causal inference, this project shifts analytics from descriptive hindsight to actionable foresight.
 
-Built using:
+Built with:
 - Bayesian multivariate modeling (`brms`)
 - Causal inference using DAGs
-- Macro-to-micro marketing strategy logic
+- Macro-to-micro marketing strategy translation
 
-This work aims to empower strategic planning across pricing, sentiment-based messaging, and demand stabilization — even in uncertain economic conditions.
+The goal is to support strategic planning in pricing, sentiment-driven messaging, and demand stabilization—even under economic uncertainty.
 
 ---
 
 ## Objectives
 
-- Quantify the causal impact of macro drivers (e.g., unemployment, income, sentiment) on retail demand.
-- Translate macro trends into proactive marketing & pricing actions.
-- Enable early-warning systems using explainable Bayesian models for campaign and pricing strategy.
+- Quantify the **causal impact** of macro drivers (e.g., unemployment, income, sentiment) on retail demand.
+- Translate macro trends into **proactive marketing and pricing** actions.
+- Enable **early-warning systems** through explainable Bayesian models.
 
 ---
 
@@ -33,91 +33,92 @@ This work aims to empower strategic planning across pricing, sentiment-based mes
 
 All macroeconomic indicators are sourced from [Eurostat](https://ec.europa.eu/eurostat).
 
-| Indicator                  | Dataset Name         | Description                                 |
-|---------------------------|----------------------|---------------------------------------------|
-| HICP (Clothing & Footwear)| `prc_hicp_midx`      | Harmonized price index, 2015 = 100          |
-| Retail Volume Index        | `sts_trtu_m`         | Seasonally adjusted retail volume           |
-| Consumer Sentiment         | `ei_bsco_m`          | Composite confidence index                  |
-| Unemployment Rate          | `une_rt_m`           | Age 25–74, seasonally adjusted              |
-| Household Income Proxy     | `nasq_10_nf_tr`      | Gross income received (sector S14_S15)      |
+| Indicator                   | Dataset Name        | Description                                 |
+|----------------------------|---------------------|---------------------------------------------|
+| HICP (Clothing & Footwear) | `prc_hicp_midx`     | Harmonized price index, 2015 = 100          |
+| Retail Volume Index        | `sts_trtu_m`        | Seasonally adjusted retail volume           |
+| Consumer Sentiment         | `ei_bsco_m`         | Composite confidence index                  |
+| Unemployment Rate          | `une_rt_m`          | Age 25–74, seasonally adjusted              |
+| Household Income Proxy     | `nasq_10_nf_tr`     | Gross income received (sector S14_S15)      |
 
-**Important Note:**  
-The Eurostat R API (`eurostat` package) is frequently outdated by several months, while manually downloaded CSV files reflect the most current data.  
-Future model iterations will rely on locally downloaded CSVs only for up-to-date analysis.
+**Note:**  
+The `eurostat` R package often lags by several months. CSV downloads from the Eurostat portal provide up-to-date figures. Future iterations of this model will rely on **manually downloaded CSVs** to improve recency and scenario accuracy.
 
 ---
 
 ## Methodology
 
 ### 1. Data Ingestion & Cleaning (`01_ingest_eurostat.R`)
-- Aggregates monthly data to quarterly resolution.
-- Applies country filters and imputes missing values via MICE.
-- Produces `combined_q_trimmed.rds` for modeling.
+- Aggregates monthly data into quarterly format.
+- Filters non-reporting countries and imputes missing values via MICE.
+- Produces `combined_q_trimmed.rds`.
 
 ### 2. Causal Exploration (`03_dag_exploration.html`)
-- Binary comparisons of lagged effects build an initial DAG.
-- Assesses candidate confounders and structural assumptions.
+- Conditional probability comparisons identify key confounders.
+- Outputs a DAG structure to guide model design.
 
 ### 3. Bayesian Modeling (`04_bayesian_model.R`)
-- Pooled and multilevel (`brms`) models:
-  - Volume: ~ lag(volume) + sentiment + unemployment + price  
-  - Sentiment: ~ lag(income) + lag(unemployment)  
-  - Price: ~ lag(income) + lag(unemployment) + lag(volume)
-- Posterior predictive checks and full diagnostics included.
+- Pooled and hierarchical models built in `brms`:
+  - **Volume** ~ lag(volume) + sentiment + unemployment + price  
+  - **Sentiment** ~ lag(income) + lag(unemployment)  
+  - **Price** ~ lag(income) + lag(unemployment) + lag(volume)
+- Posterior predictive checks and model diagnostics included.
 
 ---
 
 ## Output
 
-- `combined_q_trimmed.rds`: Cleaned & imputed dataset  
+- `combined_q_trimmed.rds`: Cleaned and imputed dataset  
 - `fit_bayes.rds`: Pooled Bayesian model  
 - `fit_bayes_hier.rds`: Hierarchical multilevel model  
 - `/diagnostics`: Posterior predictive check plots  
-- `executive_summary.Rmd`: Business-facing insights report
-   
+- `executive_summary.Rmd`: Business-facing insights summary  
+
 ---
 
 ## Key Business Insights
 
-- Consumer sentiment is a real-time positive sales driver, and is itself predictable from lagged income and unemployment.
-- Sales volume drops can be predicted from previous quarter's unemployment levels, i.e., when unemployment rises one quarter next querter's sales volume significantly drops.
-- Real-time price has a small, context-sensitive effect on volume. Its impact is often confounded by income and prior volume, indicating the need for causal adjustment.
-- Retail sales momentum (lagged volume) is a dominant predictor, emphasizing the value of sustaining demand after strong quarters.
-- Previous quarter macro signals can forecast competitor competitor price moves and consumer sentiment, enabling more informed and pro-active pricing strategies and sentiment counter-measures.
-  
+- **Sentiment is a real-time driver** of sales, and is itself predictable from lagged macro factors like income and unemployment.
+- **Unemployment rises one quarter precede volume drops the next**, offering a proactive window for demand-side intervention.
+- **Price shows modest, context-sensitive influence** on volume. Its effects are often confounded, highlighting the value of causal adjustment.
+- **Lagged volume is the strongest volume predictor**, emphasizing the role of momentum and retention in sustaining demand.
+- **Macro indicators can anticipate pricing moves and sentiment trends**, aiding competitor tracking and preemptive strategy development.
+
 ![image](https://github.com/user-attachments/assets/50e101cc-8c35-43a4-8200-f38103248c4d)
 
 ---
 
 ## Strategic Applications
 
-- Preemptive campaign planning triggered by predicted sentiment downturns  
-- Localized price strategy tuned to country-level macro context  
-- Scenario modeling for simulated shocks using causal `do()` logic  
-- Elasticity-informed pricing moves based on market conditioning
+- Campaign timing aligned with **predicted sentiment downturns**  
+- Country-specific **price sensitivity analysis**  
+- Shock scenario modeling via **causal `do()` interventions**  
+- **Elasticity-informed pricing** driven by real economic signals
 
 ---
 
 ## Next Steps
 
-- **Integrate trade and supply-side shocks:**  
-  Given recent global disruptions (e.g., U.S. tariffs, shifting trade blocs), the current model should be extended to capture:
-  - Imported inflation risks via producer prices and trade volumes
-  - Sudden supply chain disruptions influencing price and sentiment
-  - Macro volatility propagation from external shocks to consumer behavior
+### 1. Integrate Trade & Supply-Side Shocks  
+Recent global disruptions (e.g. U.S. tariffs, shifting trade blocs) warrant model extension to capture:
+- Imported inflation via producer prices and trade volumes  
+- Supply chain disruptions impacting sentiment and prices  
+- External shock transmission into retail demand patterns  
 
-- **Upgrade to most recent data:**  
-  - Replace API-sourced data with live Eurostat CSV downloads to reduce lag and enhance scenario accuracy.
-  - Better understand what to do with non-reporting countries (e.g., CH not reporting sentiment) and find proxies or imputation options
+### 2. Upgrade to Real-Time Data  
+- Replace R API inputs with live CSV downloads from Eurostat.  
+- Explore proxies or imputation for countries lacking full reporting (e.g., Switzerland's missing sentiment).
 
-- **Solvel Hierarchical Model Issues**
-  - Parts of the hierachical model could not converge at 1,000 iterations (running on local machine). Rerun this in GCE in a high compute engine (16-32 CPUs, 16GB)
+### 3. Resolve Hierarchical Modeling Limits  
+- Some convergence issues at 1,000 iterations on local hardware.  
+- Re-run hierarchical models on Google Cloud Compute (16–32 CPUs, 16GB RAM) for stability.
 
-- **Future Modeling Directions:**
-  - Incorporate Bayesian networks for flexible multi-node inference  
-  - Add business sentiment or trade indicators as upstream drivers  
-  - Extend to real-time scenario dashboards with probabilistic forecasting
+### 4. Future Modeling Directions  
+- Explore **Bayesian networks** for flexible multi-node inference  
+- Introduce **non-linearity** or splines in future models  
+- Add upstream **business sentiment** and trade flow indicators  
+- Develop **interactive dashboards** for real-time simulation and strategic planning  
 
 ---
 
-> This project demonstrates how causal modeling, macro data, and Bayesian forecasting can come together to help marketers and strategists anticipate, adapt, and act — rather than react — in volatile economic landscapes.
+> This project illustrates how causal modeling, macroeconomic context, and Bayesian methods can converge to help marketers and decision-makers **anticipate, adapt, and act** in volatile environments—rather than simply react.
