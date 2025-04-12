@@ -66,6 +66,14 @@ Future model iterations will rely on locally downloaded CSVs only for up-to-date
 - Posterior predictive checks and full diagnostics included.
 
 ---
+## Output
+
+- `combined_q_trimmed.rds`: Cleaned & imputed dataset  
+- `fit_bayes.rds`: Pooled Bayesian model  
+- `fit_bayes_hier.rds`: Hierarchical multilevel model  
+- `/diagnostics`: Posterior predictive check plots  
+- `executive_summary.Rmd`: Business-facing insights report  
+---
 
 ## Key Business Insights
 
@@ -76,17 +84,6 @@ Future model iterations will rely on locally downloaded CSVs only for up-to-date
 - Previous quarter macro signals can forecast competitor competitor price moves and consumer sentiment, enabling more informed and pro-active pricing strategies and sentiment counter-measures.
   
 ![image](https://github.com/user-attachments/assets/50e101cc-8c35-43a4-8200-f38103248c4d)
-
-
----
-
-## Output
-
-- `combined_q_trimmed.rds`: Cleaned & imputed dataset  
-- `fit_bayes.rds`: Pooled Bayesian model  
-- `fit_bayes_hier.rds`: Hierarchical multilevel model  
-- `/diagnostics`: Posterior predictive check plots  
-- `executive_summary.Rmd`: Business-facing insights report  
 
 ---
 
