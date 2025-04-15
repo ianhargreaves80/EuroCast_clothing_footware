@@ -2,24 +2,22 @@ library(naniar)    # Visualizing and summarizing missing data
 library(mice)      # Multiple Imputation via Chained Equations
 library(skimr)     # Quick data summaries
 
-combined_q_trimmed <- readRDS("filepath")
-
 # ────────────────────────────────────────────────────────────────
-# 8. Explore Structure and Missingness
+# Explore Structure and Missingness
 # ────────────────────────────────────────────────────────────────
 
 # Visualize missing values by variable
-gg_miss_var(combined_q_filtered, show_pct = TRUE)
+gg_miss_var(combined_q_trimmed, show_pct = TRUE)
 
 # Visualize missingness patterns
-vis_miss(combined_q_filtered)
+vis_miss(combined_q_trimmed)
 
 # ────────────────────────────────────────────────────────────────
 # Explore Missingness by Country and Variable
 # ────────────────────────────────────────────────────────────────
 
 # Count NAs by country and variable
-combined_q_filtered %>%
+combined_q_trimmed %>%
   pivot_longer(cols = c(price_index, volume_index, sentiment, 
                         unemployment_rate, household_income),
                names_to = "variable", values_to = "value") %>%
@@ -62,7 +60,7 @@ combined_q_trimmed <- combined_q_trimmed %>%
 library(mice)
 
 # Prepare data
-mice_ready <- combined_q_filtered %>%
+mice_ready <- combined_q_trimmed %>%
   mutate(geo = as.factor(geo)) %>%
   select(geo, time, price_index, volume_index, sentiment, 
          unemployment_rate, household_income)
@@ -76,3 +74,16 @@ imputed <- mice(mice_ready,
 
 # Extract the first completed dataset
 combined_q_trimmed <- complete(imputed, 1)
+
+# Verify imputation is successful
+combined_q_trimmed %>%
+  pivot_longer(cols = c(price_index, volume_index, sentiment, 
+                        unemployment_rate, household_income),
+               names_to = "variable", values_to = "value") %>%
+  group_by(geo, variable) %>%
+  summarise(missing_pct = mean(is.na(value)) * 100, .groups = "drop") %>%
+  arrange(desc(missing_pct)) %>%
+  filter(missing_pct > 0) %>%
+  print(n = 100)
+
+saveRDS(combined_q_trimmed, "filepath")

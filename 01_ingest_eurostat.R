@@ -118,6 +118,3 @@ combined_q_trimmed <- combined_q %>%
 # Output: `combined_q_trimmed` contains all prepared macro indicators
 # ────────────────────────────────────────────────────────────────
 # Save the cleaned dataset
-saveRDS(combined_q_trimmed, file = "filepath")
-
-
