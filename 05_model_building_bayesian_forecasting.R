@@ -1,12 +1,4 @@
 start_time <- Sys.time()
-
-install.packages("ragg")
-install.packages("brms")
-install.packages("loo")
-install.packages("bayesplot")
-install.packages("broom.mixed")
-install.packages("googledrive")
-
 # ================================
 # 🚀 Required Libraries
 # ================================
@@ -15,29 +7,12 @@ library(brms)
 library(loo)
 library(bayesplot)
 library(broom.mixed)
-library(googledrive)
+library(posterior)
 
 # ================================
 # 📅 Date Prefix for File Names
 # ================================
 today_str <- format(Sys.Date(), "%Y-%m-%d")
-
-# ================================
-# 🔐 Authenticate Google Drive
-# ================================
-drive_auth()
-
-# Create Drive folders (if not already existing)
-drive_folder_create <- function(folder_name) {
-  folder <- drive_get(folder_name)
-  if (nrow(folder) == 0) {
-    folder <- drive_mkdir(folder_name)
-  }
-  return(folder)
-}
-
-pooled_folder <- drive_folder_create("EuroCast_Pooled_Model")
-hier_folder   <- drive_folder_create("EuroCast_Hierarchical_Model")
 
 # ================================
 # 📦 Load and Prepare Data
@@ -70,7 +45,7 @@ combined_q_lags <- combined_q_trimmed %>%
 # ================================
 # 🔧 Priors
 # ================================
-priors <- c(
+priors_pooled <- c(
   prior(normal(100, 20), class = "Intercept", resp = "volumeindex"),
   prior(normal(0, 5), class = "b", coef = "volume_lag1", resp = "volumeindex"),
   prior(normal(0, 5), class = "b", coef = "price_index", resp = "volumeindex"),
@@ -97,7 +72,7 @@ fit_pooled <- brm(
     bf(sentiment ~ income_lag1 + unemployment_lag1) +
     set_rescor(FALSE),
   data = combined_q_lags,
-  prior = priors,
+  prior = priors_pooled,
   chains = 4,
   cores = 4,
   iter = 4000,
@@ -107,19 +82,30 @@ fit_pooled <- brm(
 
 # Save pooled summary
 summary_pooled <- broom.mixed::tidy(fit_pooled) %>% mutate(model = "Pooled")
-pooled_summary_file <- paste0("summary_pooled_", today_str, ".csv")
-write_csv(summary_pooled, pooled_summary_file)
-drive_upload(pooled_summary_file, path = pooled_folder)
+summary(fit_pooled)
+as_draws_df(fit_pooled)
+posterior::summarise_draws(as_draws_df(fit_pooled))
+# ================================
+# 📈 Extract Pooled Posteriors
+# ================================
 
-# Save pooled diagnostics
-responses <- c("volumeindex", "priceindex", "sentiment")
-for (resp in responses) {
-  plot_file <- paste0("ppcheck_pooled_", resp, "_", today_str, ".png")
-  png(plot_file, width = 800, height = 600)
-  pp_check(fit_pooled, resp = resp)
-  dev.off()
-  drive_upload(plot_file, path = pooled_folder)
-}
+priors_hier <- c(
+  prior(normal(102.79, 0.85), class = "Intercept", resp = "volumeindex"),
+  prior(normal(101.60, 0.20), class = "Intercept", resp = "priceindex"),
+  prior(normal(-12.06, 0.18), class = "Intercept", resp = "sentiment"),
+  
+  prior(normal(10.06, 0.15), class = "b", coef = "volume_lag1", resp = "volumeindex"),
+  prior(normal(-0.0301, 0.0083), class = "b", coef = "price_index", resp = "volumeindex"),
+  prior(normal(0.4309, 0.132), class = "b", coef = "sentiment_norm", resp = "volumeindex"),
+  prior(normal(-0.416, 0.151), class = "b", coef = "unemployment_lag1", resp = "volumeindex"),
+  
+  prior(normal(2.03, 0.20), class = "b", coef = "income_lag1", resp = "priceindex"),
+  prior(normal(0.576, 0.202), class = "b", coef = "unemployment_lag1", resp = "priceindex"),
+  
+  prior(normal(0.929, 0.183), class = "b", coef = "income_lag1", resp = "sentiment"),
+  prior(normal(-3.97, 0.181), class = "b", coef = "unemployment_lag1", resp = "sentiment")
+)
+
 # ======================================================
 # 5. Hierarchical (Multilevel) Bayesian Model
 # ======================================================
@@ -132,7 +118,7 @@ fit_bayes_hier <- brm(
          (1 + income_lag1 + unemployment_lag1 | geo), family = gaussian()) +
     set_rescor(FALSE),
   data = combined_q_lags,
-  prior = priors,
+  prior = priors_hier,
   chains = 4,
   cores = 4,
   iter = 4000,
