@@ -1,0 +1,28 @@
+{
+    "id": "316CF350",
+    "path": "~/Desktop/Engineering/Sales_predictions/04_dag_exploration.Rmd",
+    "project_path": "04_dag_exploration.Rmd",
+    "type": "r_markdown",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1744366159532.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "tempName": "Untitled2",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "7,0",
+        "scrollLine": "0",
+        "last_setup_crc32": ""
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1744730962,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1744730962,
+    "read_only": false,
+    "read_only_alternatives": []
+}

@@ -1,0 +1,56 @@
+# ================================
+# 📦 Step 1: Select Non-Predictor Variables
+# ================================
+# You might include these for structural behavior:
+cluster_vars <- c(
+  "household_income",  # long-term macro feature
+  "unemployment_rate",
+  "volume_index",      # historical demand level
+  "sentiment",         # confidence proxy
+  "price_index"        # structural inflation exposure
+)
+
+# ================================
+# 🧮 Step 2: Aggregate at Country Level
+# ================================
+geo_summary <- combined_q_trimmed %>%
+  group_by(geo) %>%
+  summarise(across(all_of(cluster_vars), mean, na.rm = TRUE)) %>%
+  column_to_rownames("geo") %>%
+  scale()  # normalize across variables
+
+# ================================
+# 🔗 Step 3: Compute Distance Matrix
+# ================================
+dist_matrix <- dist(geo_summary, method = "euclidean")
+
+# ================================
+# 🌲 Step 4: Hierarchical Clustering
+# ================================
+hc <- hclust(dist_matrix, method = "ward.D2")
+
+# Optional: Plot dendrogram
+plot(hc, main = "Hierarchical Clustering of Countries", xlab = "", sub = "")
+
+# ================================
+# 🔢 Step 5: Cut Tree Into Clusters
+# ================================
+# Cut dendrogram at specific height
+cut_height <- 4
+cluster_assignments <- cutree(hc, h = cut_height)
+
+geo_cluster_df <- data.frame(
+  geo = rownames(geo_summary),
+  cluster = as.factor(cluster_assignments)
+)
+
+# Add clusters to main dataset once
+combined_q_trimmed <- combined_q_trimmed %>%
+  left_join(geo_cluster_df, by = "geo")
+
+# Optional: add to lags if needed
+combined_q_trimmed <- combined_q_trimmed %>%
+  select(-matches("^cluster(\\.|$)")) %>%
+  left_join(geo_cluster_df, by = "geo")
+
+saveRDS(combined_q_trimmed, "/Users/ian/Desktop/Engineering/Sales_predictions/Eurostat_data.rds")

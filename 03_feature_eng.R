@@ -13,7 +13,7 @@ cluster_vars <- c(
 # ================================
 # 🧮 Step 2: Aggregate at Country Level
 # ================================
-geo_summary <- combined_q_lags %>%
+geo_summary <- combined_q_trimmed %>%
   group_by(geo) %>%
   summarise(across(all_of(cluster_vars), mean, na.rm = TRUE)) %>%
   column_to_rownames("geo") %>%
@@ -58,7 +58,7 @@ heatmap(as.matrix(geo_summary), Rowv = as.dendrogram(hc), scale = "none")
 # 📐 Step 1: Cut tree at height = 4
 # ================================
 # You can easily switch this value
-cut_height <- 4.5  # try changing to 6, 8, etc. if needed
+cut_height <- 4  # try changing to 6, 8, etc. if needed
 
 # Recut the dendrogram at chosen height
 cluster_assignments <- cutree(hc, h = cut_height)
@@ -90,6 +90,7 @@ combined_q_lags_cleaned <- combined_q_lags %>%
   select(-matches("^cluster(\\.|$)"))
 
 # Step 2: Add fresh cluster assignment
-combined_q_lags_cleaned <- combined_q_lags_cleaned %>%
+combined_q_trimmed <- combined_q_trimmed %>%
   left_join(geo_cluster_df, by = "geo")
-str(combined_q_lags_cleaned)
+
+saveRDS(combined_q_trimmed, "filepath")

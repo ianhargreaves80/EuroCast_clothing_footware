@@ -8,7 +8,7 @@ library(loo)
 library(bayesplot)
 library(broom.mixed)
 library(posterior)
-
+library(Metrics)
 # ================================
 # 📅 Date Prefix for File Names
 # ================================
@@ -17,9 +17,9 @@ today_str <- format(Sys.Date(), "%Y-%m-%d")
 # ================================
 # 📦 Load and Prepare Data
 # ================================
-combined_q_trimmed <- readRDS(
-  url("https://github.com/ianhargreaves80/EuroCast_clothing_footware/raw/refs/heads/main/combined_q_trimmed.rds")
-)
+#combined_q_trimmed <- readRDS(
+ # url("https://github.com/ianhargreaves80/EuroCast_clothing_footware/raw/refs/heads/main/combined_q_trimmed.rds")
+#)
 
 combined_q_trimmed <- combined_q_trimmed %>%
   group_by(geo) %>%
@@ -41,6 +41,13 @@ combined_q_lags <- combined_q_trimmed %>%
     logincome         = log(household_income)
   ) %>%
   ungroup()
+
+# Identify most recent quarter across all countries
+holdout_quarter <- max(combined_q_lags$time)
+
+# Split the data
+holdout_data <- combined_q_lags %>% filter(time == holdout_quarter)
+train_data   <- combined_q_lags %>% filter(time < holdout_quarter)
 
 # ================================
 # 🔧 Priors
@@ -71,20 +78,38 @@ fit_pooled <- brm(
     bf(price_index ~ income_lag1 + unemployment_lag1) +
     bf(sentiment ~ income_lag1 + unemployment_lag1) +
     set_rescor(FALSE),
-  data = combined_q_lags,
+  data = train_data,
   prior = priors_pooled,
-  chains = 4,
-  cores = 4,
-  iter = 4000,
-  seed = 42,
-  control = list(adapt_delta = 0.99)
+  chains = 1, cores = 2, iter = 200, seed = 42,
+  control = list(adapt_delta = 0.99),
+  threads = threading(2)
 )
 
-# Save pooled summary
-summary_pooled <- broom.mixed::tidy(fit_pooled) %>% mutate(model = "Pooled")
-summary(fit_pooled)
-as_draws_df(fit_pooled)
-posterior::summarise_draws(as_draws_df(fit_pooled))
+# Get predictions for volume_index
+preds_pooled <- posterior_predict(fit_pooled, newdata = holdout_data, resp = "volumeindex")
+# Transpose so each row is an observation, each column is a posterior draw
+preds_pooled_df <- as.data.frame(preds_pooled)
+# Compute the mean of each column (i.e., average prediction for each observation)
+mean_preds <- colMeans(preds_pooled_df)  # This gives a named vector of point predictions
+
+# Convert to a dataframe and transpose
+mean_preds_df <- data.frame(mean_pred = mean_preds)
+# Add observed values to your prediction dataframe
+mean_preds_df$obs <- holdout_data$volume_index
+
+# Now compute the metrics
+rmse_val <- rmse(mean_preds_df$obs, mean_preds_df$mean_pred)
+mae_val  <- mae(mean_preds_df$obs, mean_preds_df$mean_pred)
+mape_val <- mape(mean_preds_df$obs, mean_preds_df$mean_pred)
+
+# Output as tibble
+metrics_summary <- tibble(
+  RMSE = rmse_val,
+  MAE  = mae_val,
+  MAPE = mape_val
+)
+
+print(metrics_summary)
 # ================================
 # 📈 Extract Pooled Posteriors
 # ================================
@@ -107,9 +132,9 @@ priors_hier <- c(
 )
 
 # ======================================================
-# 5. Hierarchical (Multilevel) Bayesian Model
+# 5. Hierarchical (Multilevel) Bayesian Models
 # ======================================================
-fit_bayes_hier <- brm(
+fit_bayes_hier_geo <- brm(
   bf(volume_index ~ volume_lag1 + price_index + sentiment_norm + unemployment_lag1 +
        (1 + volume_lag1 + price_index + sentiment_norm + unemployment_lag1 | geo), family = gaussian()) +
     bf(price_index ~ income_lag1 + unemployment_lag1 +
@@ -119,9 +144,9 @@ fit_bayes_hier <- brm(
     set_rescor(FALSE),
   data = combined_q_lags,
   prior = priors_hier,
-  chains = 4,
+  chains = 2,
   cores = 4,
-  iter = 4000,
+  iter = 100,
   seed = 42,
   refresh = 100,
   threads = threading(2),
@@ -129,21 +154,156 @@ fit_bayes_hier <- brm(
 )
 
 # --- View Hierarchical Model Summary ---
-summary(fit_bayes_hier)
+summary(fit_bayes_hier_geo)
 
-# Hierachical model
-# Volume Index
-png("diagnostics/ppcheck_hierarchical_volume.png", width = 800, height = 600)
-pp_check(fit_bayes_hier, resp = "volumeindex")
-dev.off()
+# Get predictions for volume_index
+preds_hier_geo <- posterior_predict(fit_bayes_hier_geo, newdata = holdout_data, resp = "volumeindex")
+# Transpose so each row is an observation, each column is a posterior draw
+preds_pooled_df_hier_geo <- as.data.frame(preds_hier_geo)
+# Compute the mean of each column (i.e., average prediction for each observation)
+mean_preds_hier <- colMeans(preds_pooled_df_hier_geo)  # This gives a named vector of point predictions
 
-# Price Index
-png("diagnostics/ppcheck_hierarchical_price.png", width = 800, height = 600)
-pp_check(fit_bayes_hier, resp = "priceindex")
-dev.off()
+# Convert to a dataframe and transpose
+mean_preds_df_hier <- data.frame(mean_preds_hier = mean_preds)
+# Add observed values to your prediction dataframe
+mean_preds_df_hier$obs <- holdout_data$volume_index
 
-# Sentiment
-png("diagnostics/ppcheck_hierarchical_sentiment.png", width = 800, height = 600)
-pp_check(fit_bayes_hier, resp = "sentiment")
-dev.off()
-end_time <- Sys.time()
+# Now compute the metrics
+rmse_val <- rmse(mean_preds_df_hier$obs, mean_preds_df_hier$mean_pred)
+mae_val  <- mae(mean_preds_df_hier$obs, mean_preds_df_hier$mean_pred)
+mape_val <- mape(mean_preds_df_hier$obs, mean_preds_df_hier$mean_pred)
+
+# Output as tibble
+metrics_summary_hier <- tibble(
+  RMSE = rmse_val,
+  MAE  = mae_val,
+  MAPE = mape_val
+)
+
+print(metrics_summary_hier)
+
+fit_bayes_hier_cluster <- brm(
+  bf(volume_index ~ volume_lag1 + price_index + sentiment_norm + unemployment_lag1 +
+       (1 + volume_lag1 + price_index + sentiment_norm + unemployment_lag1 | cluster), family = gaussian()) +
+    bf(price_index ~ income_lag1 + unemployment_lag1 +
+         (1 + income_lag1 + unemployment_lag1 | cluster), family = gaussian()) +
+    bf(sentiment ~ income_lag1 + unemployment_lag1 +
+         (1 + income_lag1 + unemployment_lag1 | cluster), family = gaussian()) +
+    set_rescor(FALSE),
+  data = combined_q_lags,
+  prior = priors_hier,
+  chains = 2,
+  cores = 4,
+  iter = 100,
+  seed = 42,
+  refresh = 100,
+  threads = threading(2),
+  control = list(adapt_delta = 0.99)
+)
+
+# --- View Hierarchical Model Summary ---
+summary(fit_bayes_hier_cluster)
+
+# Get predictions for volume_index
+preds_hier_cluster <- posterior_predict(fit_bayes_hier_cluster, newdata = holdout_data, resp = "volumeindex")
+# Transpose so each row is an observation, each column is a posterior draw
+preds_pooled_df_hier_cluster <- as.data.frame(preds_hier_cluster)
+# Compute the mean of each column (i.e., average prediction for each observation)
+mean_preds_hier_cluster <- colMeans(preds_pooled_df_hier_cluster)  # This gives a named vector of point predictions
+
+# Convert to a dataframe and transpose
+mean_preds_df_cluster <- data.frame(mean_preds_hier_cluster = mean_preds)
+# Add observed values to your prediction dataframe
+mean_preds_df_cluster$obs <- holdout_data$volume_index
+
+# Now compute the metrics
+rmse_val <- rmse(mean_preds_df_cluster$obs, mean_preds_df_cluster$mean_pred)
+mae_val  <- mae(mean_preds_df_cluster$obs, mean_preds_df_cluster$mean_pred)
+mape_val <- mape(mean_preds_df_cluster$obs, mean_preds_df_cluster$mean_pred)
+
+# Output as tibble
+metrics_summary_cluster <- tibble(
+  RMSE = rmse_val,
+  MAE  = mae_val,
+  MAPE = mape_val
+)
+
+print(metrics_summary_cluster)
+
+# --- View Hierarchical Model Summary ---
+summary(fit_bayes_hier_geo)
+
+fit_bayes_hier_cluster_div_geo <- brm(
+  bf(volume_index ~ volume_lag1 + price_index + sentiment_norm + unemployment_lag1 +
+       (1 + volume_lag1 + price_index + sentiment_norm + unemployment_lag1 | cluster:geo), family = gaussian()) +
+    bf(price_index ~ income_lag1 + unemployment_lag1 +
+         (1 + income_lag1 + unemployment_lag1 | cluster:geo), family = gaussian()) +
+    bf(sentiment ~ income_lag1 + unemployment_lag1 +
+         (1 + income_lag1 + unemployment_lag1 | cluster:geo), family = gaussian()) +
+    set_rescor(FALSE),
+  data = combined_q_lags,
+  prior = priors_hier,
+  chains = 2,
+  cores = 4,
+  iter = 100,
+  seed = 42,
+  refresh = 100,
+  threads = threading(2),
+  control = list(adapt_delta = 0.99)
+)
+
+# --- View Hierarchical Model Summary ---
+summary(fit_bayes_hier_cluster_div_geo)
+
+# Pooled model
+preds_pooled <- posterior_predict(fit_pooled, newdata = holdout_data, resp = "volumeindex")
+mean_preds_pooled <- colMeans(as.data.frame(preds_pooled))
+df_pooled <- data.frame(
+  obs = holdout_data$volume_index,
+  pred = mean_preds_pooled,
+  model = "Pooled"
+)
+
+# Geo-level hierarchical model
+preds_geo <- posterior_predict(fit_bayes_hier_geo, newdata = holdout_data, resp = "volumeindex")
+mean_preds_geo <- colMeans(as.data.frame(preds_geo))
+df_geo <- data.frame(
+  obs = holdout_data$volume_index,
+  pred = mean_preds_geo,
+  model = "Hierarchical Geo"
+)
+
+# Cluster-level hierarchical model
+preds_cluster <- posterior_predict(fit_bayes_hier_cluster, newdata = holdout_data, resp = "volumeindex")
+mean_preds_cluster <- colMeans(as.data.frame(preds_cluster))
+df_cluster <- data.frame(
+  obs = holdout_data$volume_index,
+  pred = mean_preds_cluster,
+  model = "Hierarchical Cluster"
+)
+
+# Cluster+Geo hierarchical model
+preds_cluster_geo <- posterior_predict(fit_bayes_hier_cluster_div_geo, newdata = holdout_data, resp = "volumeindex")
+mean_preds_cluster_geo <- colMeans(as.data.frame(preds_cluster_geo))
+df_cluster_geo <- data.frame(
+  obs = holdout_data$volume_index,
+  pred = mean_preds_cluster_geo,
+  model = "Hierarchical Cluster + Geo"
+)
+
+# Combine all predictions into one table
+all_preds <- rbind(df_cluster, df_geo, df_pooled, df_cluster_geo)
+
+# Compute metrics per model
+metrics_table <- all_preds %>%
+  group_by(model) %>%
+  summarise(
+    RMSE = rmse(obs, pred),
+    MAE = mae(obs, pred),
+    MAPE = mape(obs, pred)
+  )
+
+# Show both predictions and metrics
+all_preds  # full predictions
+metrics_table  # summary metrics per model
+
